@@ -1,11 +1,21 @@
 from fastapi import FastAPI, HTTPException
-import httpx
 from pydantic import BaseModel
+import httpx
+from supabase import create_client, Client
+import os
 import logging
 
 app = FastAPI()
 
-# Setting up logging
+# Environment variables
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+
+# Setup Supabase client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -23,11 +33,10 @@ async def submit_gpt4(submission: Submission):
     }
     headers = {
         "Content-Type": "application/json",
-        "X-Auth-Token": "suka"  # This should be managed securely
+        "X-Auth-Token": AUTH_TOKEN
     }
 
     timeout = httpx.Timeout(30.0, connect=5.0)
-
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(
@@ -38,6 +47,12 @@ async def submit_gpt4(submission: Submission):
             response.raise_for_status()
             result = response.json()
             logging.debug("API call successful")
+
+            # Save to Supabase
+            supabase.table("api_logs").insert({
+                "request_bio": submission.bio,
+                "response_message": result['choices'][0]['message']['content']
+            }).execute()
 
             return {
                 "message": result['choices'][0]['message']['content'],
@@ -50,6 +65,12 @@ async def submit_gpt4(submission: Submission):
         except httpx.HTTPStatusError as e:
             logging.error(f"HTTP error occurred: {e.response.status_code}")
             raise HTTPException(status_code=e.response.status_code, detail="e")
+        except httpx.TimeoutException:
+            logging.error("Request timed out")
+            raise HTTPException(status_code=408, detail="Request timed out")
         except Exception as e:
-            logging.error(f"An error occurred: {str(e)}")
-            raise HTTPException(status_code=500, detail="An unexpected error ")
+            logging.error(f"An unexpected error occurred: {str(e)}")
+            raise HTTPException(status_code=500, detail="An unexpected error")
+
+# To run this example use:
+# uvicorn filename:app --reload
