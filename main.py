@@ -43,3 +43,7 @@ async def generate_response(payload: Payload):
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
             raise HTTPException(status_code=500, detail="An internal error occurred")
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
