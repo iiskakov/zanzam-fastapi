@@ -26,8 +26,7 @@ class Submission(BaseModel):
 
 @app.post("/submit/")
 async def submit_gpt4(submission: Submission):
-    url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions",
-
+    url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions"
     logging.debug(f"Received submission with bio: {submission.bio}")
 
     payload = {
