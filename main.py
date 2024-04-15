@@ -4,6 +4,7 @@ import httpx
 from supabase import create_client, Client
 import os
 import logging
+from fastapi.encoders import jsonable_encoder
 
 app = FastAPI()
 
@@ -25,7 +26,8 @@ class Submission(BaseModel):
 
 @app.post("/submit/")
 async def submit_gpt4(submission: Submission):
-    url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions"
+    url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions",
+
     logging.debug(f"Received submission with bio: {submission.bio}")
 
     payload = {
@@ -48,10 +50,11 @@ async def submit_gpt4(submission: Submission):
             result = response.json()
             logging.debug("API call successful")
 
-            # Save to Supabase
+            # Save full response to Supabase
+            response_data = jsonable_encoder(result)
             supabase.table("api_logs").insert({
                 "request_bio": submission.bio,
-                "response_message": result['choices'][0]['message']['content']
+                "response_data": response_data
             }).execute()
 
             return {
@@ -72,5 +75,3 @@ async def submit_gpt4(submission: Submission):
             logging.error(f"An unexpected error occurred: {str(e)}")
             raise HTTPException(status_code=500, detail="An unexpected error")
 
-# To run this example use:
-# uvicorn filename:app --reload
