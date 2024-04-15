@@ -6,6 +6,7 @@ import os
 import logging
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 
 
 app = FastAPI()
@@ -30,8 +31,10 @@ app.add_middleware(
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -42,6 +45,11 @@ class Submission(BaseModel):
 
 @app.post("/submit/")
 async def submit_gpt4(submission: Submission):
+    moderation_response = openai_client.moderations.create(input=submission.bio)
+    if moderation_response.results[0].flagged:
+        logging.error("Content flagged by moderation")
+        raise HTTPException(status_code=400, detail="Content not acceptable")
+
     url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions"
     logging.debug(f"Received submission with bio: {submission.bio}")
 
