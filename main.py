@@ -40,21 +40,21 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class Submission(BaseModel):
-    bio: str
+    question: str
 
 
 @app.post("/submit/")
 async def submit_gpt4(submission: Submission):
-    moderation_response = openai_client.moderations.create(input=submission.bio)
+    moderation_response = openai_client.moderations.create(input=submission.question)
     if moderation_response.results[0].flagged:
         logging.error("Content flagged by moderation")
         raise HTTPException(status_code=400, detail="Content not acceptable")
 
     url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions"
-    logging.debug(f"Received submission with bio: {submission.bio}")
+    logging.debug(f"Received submission with question: {submission.question}")
 
     payload = {
-        "messages": [{"role": "user", "content": submission.bio}]
+        "messages": [{"role": "user", "content": submission.question}]
     }
     headers = {
         "Content-Type": "application/json",
@@ -76,7 +76,7 @@ async def submit_gpt4(submission: Submission):
             # Save full response to Supabase
             response_data = jsonable_encoder(result)
             supabase.table("api_logs").insert({
-                "request_bio": submission.bio,
+                "request_question": submission.question,
                 "response_data": response_data
             }).execute()
 
