@@ -53,7 +53,7 @@ async def submit_gpt4(submission: Submission):
         "X-Auth-Token": AUTH_TOKEN
     }
 
-    timeout = httpx.Timeout(30.0, connect=5.0)
+    timeout = httpx.Timeout(50.0, connect=5.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(
