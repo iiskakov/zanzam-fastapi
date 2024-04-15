@@ -26,7 +26,9 @@ async def submit_gpt4(submission: Submission):
         "X-Auth-Token": "suka"  # This should be managed securely
     }
 
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(30.0, connect=5.0)
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(
                 url,
