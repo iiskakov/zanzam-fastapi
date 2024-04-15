@@ -5,18 +5,34 @@ from supabase import create_client, Client
 import os
 import logging
 from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 
-# Environment variables
+origins = [
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "http://localhost:8080",
+    "http://localhost:4200",
+    "http://localhost:8000",
+    "https://zanzam.kz"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    )
+
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 
-# Setup Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
 
