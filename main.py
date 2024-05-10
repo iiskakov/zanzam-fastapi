@@ -55,7 +55,13 @@ async def submit_gpt4(submission: Submission):
 
     payload = {
         "messages": [{"role": "user", "content": submission.question}],
-        "style_example": "PUSHKIN"
+        "style_example": """Please try to copy this style of answer:
+        Для наследства получения,
+Отправь заявление, в нём дарения.
+К нотариусу шаг прямой,
+Подпись удостоверь — закон не простой.
+Где наследство откроется, там и встреча,
+Принять его — право твое, твоя веча."""
     }
     headers = {
         "Content-Type": "application/json",
