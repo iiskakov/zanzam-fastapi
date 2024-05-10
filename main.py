@@ -54,7 +54,8 @@ async def submit_gpt4(submission: Submission):
     logging.debug(f"Received submission with question: {submission.question}")
 
     payload = {
-        "messages": [{"role": "user", "content": submission.question}]
+        "messages": [{"role": "user", "content": submission.question}],
+        "style_example": "PUSHKIN"
     }
     headers = {
         "Content-Type": "application/json",
