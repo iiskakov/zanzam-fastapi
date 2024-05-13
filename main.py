@@ -55,14 +55,11 @@ async def submit_gpt4(submission: Submission):
 
     payload = {
         "messages": [{"role": "user", "content": submission.question}],
-        "style_example": """Please try to copy this style of answer:
-        Для наследства получения,
-Отправь заявление, в нём дарения.
-К нотариусу шаг прямой,
-Подпись удостоверь — закон не простой.
-Где наследство откроется, там и встреча,
-Принять его — право твое, твоя веча."""
     }
+
+    if hasattr(submission, 'style_example') and submission.style_example:
+        payload["style_example"] = submission.style_example
+
     headers = {
         "Content-Type": "application/json",
         "X-Auth-Token": AUTH_TOKEN
