@@ -7,6 +7,7 @@ import logging
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+import uuid
 
 
 app = FastAPI()
@@ -77,14 +78,19 @@ async def submit_gpt4(submission: Submission):
             result = response.json()
             logging.debug("API call successful")
 
-            # Save full response to Supabase
+            # Generate a unique ID
+            unique_id = str(uuid.uuid4())
+
+            # Save full response to Supabase with unique ID
             response_data = jsonable_encoder(result)
             supabase.table("api_logs").insert({
+                "id": unique_id,
                 "request_question": submission.question,
                 "response_data": response_data
             }).execute()
 
             return {
+                "id": unique_id,
                 "message": result['choices'][0]['message']['content'],
                 "tokens": {
                     "prompt_tokens": result['usage']['prompt_tokens'],
@@ -101,4 +107,3 @@ async def submit_gpt4(submission: Submission):
         except Exception as e:
             logging.error(f"An unexpected error occurred: {str(e)}")
             raise HTTPException(status_code=500, detail="An unexpected error")
-
