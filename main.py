@@ -8,9 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import uuid
-import cProfile
-import pstats
-import io
+import time
 
 app = FastAPI()
 
@@ -45,42 +43,21 @@ class Submission(BaseModel):
     question: str
 
 
-class ProfilingMiddleware:
-    def __init__(self, app: FastAPI):
-        self.app = app
-
-    async def __call__(self, request: Request, call_next):
-        # Start profiling
-        profiler = cProfile.Profile()
-        profiler.enable()
-
-        # Process the request
-        response = await call_next(request)
-
-        # Stop profiling
-        profiler.disable()
-
-        # Output profiling results to a string stream
-        s = io.StringIO()
-        ps = pstats.Stats(profiler, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
-        ps.print_stats()
-
-        # Log the profiling results
-        logging.debug("Profiling results:\n" + s.getvalue())
-
-        return response
-
-
-app.middleware('http')(ProfilingMiddleware(app))
-
-
 @app.post("/submit/")
 async def submit_gpt4(submission: Submission):
+    start_time = time.time()
+
+    # Moderation check
+    moderation_start = time.time()
     moderation_response = openai_client.moderations.create(input=submission.question)
     if moderation_response.results[0].flagged:
         logging.error("Content flagged by moderation")
         raise HTTPException(status_code=400, detail="Content not acceptable")
+    moderation_end = time.time()
+    logging.debug(f"Moderation took {moderation_end - moderation_start:.2f} seconds")
 
+    # Preparing the payload and making the API call
+    api_call_start = time.time()
     url = "https://canopy-gpt4-production.up.railway.app/v1/chat/completions"
     logging.debug(f"Received submission with question: {submission.question}")
 
@@ -97,8 +74,8 @@ async def submit_gpt4(submission: Submission):
     }
 
     timeout = httpx.Timeout(50.0, connect=5.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 url,
                 json=payload,
@@ -107,33 +84,39 @@ async def submit_gpt4(submission: Submission):
             response.raise_for_status()
             result = response.json()
             logging.debug("API call successful")
+    except httpx.HTTPStatusError as e:
+        logging.error(f"HTTP error occurred: {e.response.status_code}")
+        raise HTTPException(status_code=e.response.status_code, detail="e")
+    except httpx.TimeoutException:
+        logging.error("Request timed out")
+        raise HTTPException(status_code=408, detail="Request timed out")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="An unexpected error")
+    api_call_end = time.time()
+    logging.debug(f"API call took {api_call_end - api_call_start:.2f} seconds")
 
-            # Generate a unique ID
-            unique_id = str(uuid.uuid4())
+    # Saving response to Supabase
+    supabase_start = time.time()
+    unique_id = str(uuid.uuid4())
+    response_data = jsonable_encoder(result)
+    supabase.table("api_logs").insert({
+        "id": unique_id,
+        "request_question": submission.question,
+        "response_data": response_data
+    }).execute()
+    supabase_end = time.time()
+    logging.debug(f"Saving to Supabase took {supabase_end - supabase_start:.2f} seconds")
 
-            # Save full response to Supabase with unique ID
-            response_data = jsonable_encoder(result)
-            supabase.table("api_logs").insert({
-                "id": unique_id,
-                "request_question": submission.question,
-                "response_data": response_data
-            }).execute()
+    total_time = time.time() - start_time
+    logging.debug(f"Total function execution time: {total_time:.2f} seconds")
 
-            return {
-                "id": unique_id,
-                "message": result['choices'][0]['message']['content'],
-                "tokens": {
-                    "prompt_tokens": result['usage']['prompt_tokens'],
-                    "completion_tokens": result['usage']['completion_tokens'],
-                },
-                "model": result['model']
-            }
-        except httpx.HTTPStatusError as e:
-            logging.error(f"HTTP error occurred: {e.response.status_code}")
-            raise HTTPException(status_code=e.response.status_code, detail="e")
-        except httpx.TimeoutException:
-            logging.error("Request timed out")
-            raise HTTPException(status_code=408, detail="Request timed out")
-        except Exception as e:
-            logging.error(f"An unexpected error occurred: {str(e)}")
-            raise HTTPException(status_code=500, detail="An unexpected error")
+    return {
+        "id": unique_id,
+        "message": result['choices'][0]['message']['content'],
+        "tokens": {
+            "prompt_tokens": result['usage']['prompt_tokens'],
+            "completion_tokens": result['usage']['completion_tokens'],
+        },
+        "model": result['model']
+    }
