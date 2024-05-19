@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 import httpx
 from supabase import create_client, Client
@@ -44,7 +44,7 @@ class Submission(BaseModel):
 
 
 @app.post("/submit/")
-async def submit_gpt4(submission: Submission):
+async def submit_gpt4(submission: Submission, background_tasks: BackgroundTasks):
     start_time = time.time()
 
     # Moderation check
@@ -54,7 +54,7 @@ async def submit_gpt4(submission: Submission):
         logging.error("Content flagged by moderation")
         raise HTTPException(status_code=400, detail="Content not acceptable")
     moderation_end = time.time()
-    logging.debug(f"Moderation took {moderation_end - moderation_start:.2f} seconds")
+    logging.debug(f"Moderation took {moderation_end - moderation_start:.2f} sec")
 
     # Preparing the payload and making the API call
     api_call_start = time.time()
@@ -86,7 +86,7 @@ async def submit_gpt4(submission: Submission):
             logging.debug("API call successful")
     except httpx.HTTPStatusError as e:
         logging.error(f"HTTP error occurred: {e.response.status_code}")
-        raise HTTPException(status_code=e.response.status_code, detail="e")
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
     except httpx.TimeoutException:
         logging.error("Request timed out")
         raise HTTPException(status_code=408, detail="Request timed out")
@@ -96,17 +96,11 @@ async def submit_gpt4(submission: Submission):
     api_call_end = time.time()
     logging.debug(f"API call took {api_call_end - api_call_start:.2f} seconds")
 
-    # Saving response to Supabase
-    supabase_start = time.time()
+    # Saving response to Supabase in the background
     unique_id = str(uuid.uuid4())
     response_data = jsonable_encoder(result)
-    supabase.table("api_logs").insert({
-        "id": unique_id,
-        "request_question": submission.question,
-        "response_data": response_data
-    }).execute()
-    supabase_end = time.time()
-    logging.debug(f"Saving to Supabase took {supabase_end - supabase_start:.2f} seconds")
+
+    background_tasks.add_task(save_to_supabase, unique_id, submission.question, response_data)
 
     total_time = time.time() - start_time
     logging.debug(f"Total function execution time: {total_time:.2f} seconds")
@@ -120,3 +114,14 @@ async def submit_gpt4(submission: Submission):
         },
         "model": result['model']
     }
+
+
+async def save_to_supabase(unique_id: str, question: str, response_data: dict):
+    supabase_start = time.time()
+    supabase.table("api_logs").insert({
+        "id": unique_id,
+        "request_question": question,
+        "response_data": response_data
+    }).execute()
+    supabase_end = time.time()
+    logging.debug(f"Saving to db {supabase_end - supabase_start:.2f} sec")
