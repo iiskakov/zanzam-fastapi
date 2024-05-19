@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 import httpx
 from supabase import create_client, Client
@@ -8,7 +8,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import uuid
-
+import cProfile
+import pstats
+import io
 
 app = FastAPI()
 
@@ -26,8 +28,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    )
-
+)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -42,6 +43,35 @@ logging.basicConfig(level=logging.DEBUG)
 
 class Submission(BaseModel):
     question: str
+
+
+class ProfilingMiddleware:
+    def __init__(self, app: FastAPI):
+        self.app = app
+
+    async def __call__(self, request: Request, call_next):
+        # Start profiling
+        profiler = cProfile.Profile()
+        profiler.enable()
+
+        # Process the request
+        response = await call_next(request)
+
+        # Stop profiling
+        profiler.disable()
+
+        # Output profiling results to a string stream
+        s = io.StringIO()
+        ps = pstats.Stats(profiler, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
+        ps.print_stats()
+
+        # Log the profiling results
+        logging.debug("Profiling results:\n" + s.getvalue())
+
+        return response
+
+
+app.middleware('http')(ProfilingMiddleware(app))
 
 
 @app.post("/submit/")
