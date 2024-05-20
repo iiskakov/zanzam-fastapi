@@ -47,14 +47,14 @@ class Submission(BaseModel):
 async def submit_gpt4(submission: Submission, background_tasks: BackgroundTasks):
     start_time = time.time()
 
-    # Moderation check
-    moderation_start = time.time()
-    moderation_response = openai_client.moderations.create(input=submission.question)
-    if moderation_response.results[0].flagged:
-        logging.error("Content flagged by moderation")
-        raise HTTPException(status_code=400, detail="Content not acceptable")
-    moderation_end = time.time()
-    logging.debug(f"Moderation took {moderation_end - moderation_start:.2f} sec")
+    # # Moderation check
+    # moderation_start = time.time()
+    # moderation_response = openai_client.moderations.create(input=submission.question)
+    # if moderation_response.results[0].flagged:
+    #     logging.error("Content flagged by moderation")
+    #     raise HTTPException(status_code=400, detail="Content not acceptable")
+    # moderation_end = time.time()
+    # logging.debug(f"Moderation took {moderation_end - moderation_start:.2f} sec")
 
     # Preparing the payload and making the API call
     api_call_start = time.time()
