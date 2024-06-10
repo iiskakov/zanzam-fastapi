@@ -18,7 +18,8 @@ origins = [
     "http://localhost:8080",
     "http://localhost:4200",
     "http://localhost:8000",
-    "https://zanzam.kz"
+    "https://zanzam.kz",
+    "https://legendary-doodle-beta.vercel.app/"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -125,3 +126,46 @@ async def save_to_supabase(unique_id: str, question: str, response_data: dict):
     }).execute()
     supabase_end = time.time()
     logging.debug(f"Saving to db {supabase_end - supabase_start:.2f} sec")
+
+    # Define the request and response models
+class AnswerCheckRequest(BaseModel):
+    user_answer: str
+    correct_answer: str
+
+class AnswerCheckResponse(BaseModel):
+    is_correct: bool
+
+# Define the endpoint to check the answer
+@app.post("/check-answer", response_model=AnswerCheckResponse)
+async def check_answer(request: AnswerCheckRequest):
+    try:
+        # Construct the prompt for the OpenAI model
+        prompt = f"""
+        The user's answer is: {request.user_answer}
+        The correct answer is: {request.correct_answer}
+        Is the user's answer roughly correct or similar? Respond with "true" if it is correct, otherwise respond with "false".
+        """
+
+        # Call the OpenAI API
+        response = openai_client.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=10
+        )
+
+        # Extract the response content
+        assistant_response = response.choices[0].message["content"].strip().lower()
+
+        # Interpret the response
+        if "true" in assistant_response:
+            return AnswerCheckResponse(is_correct=True)
+        elif "false" in assistant_response:
+            return AnswerCheckResponse(is_correct=False)
+        else:
+            raise HTTPException(status_code=500, detail="Unexpected response from OpenAI API")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
