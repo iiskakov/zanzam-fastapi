@@ -143,14 +143,14 @@ async def check_answer(request: AnswerCheckRequest):
         prompt = f"""
         The user's answer is: {request.user_answer}
         The correct answer is: {request.correct_answer}
-        Is the user's answer roughly close or similar? Respond with "true" if it is close, otherwise respond with "false". Be VERY lenient, the child is answering. Tend to respond as True. Try to forgive some mistakes. But if it's completely wrong/nonsense say false.
+        Is the user's answer roughly correct or similar? Respond with "true" if it is somewhat close, or the main idea is correct. otherwise respond with "false". Be VERY lenient, the child is answering.  Try to forgive some mistakes. But if it's completely wrong/nonsense say false.
         """
 
         # Call the OpenAI API
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a very forgiving middle school teacher."},
+                {"role": "system", "content": "You are a forgiving middle school teacher."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=10
