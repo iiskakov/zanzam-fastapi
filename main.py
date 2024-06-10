@@ -143,7 +143,7 @@ async def check_answer(request: AnswerCheckRequest):
         prompt = f"""
         The user's answer is: {request.user_answer}
         The correct answer is: {request.correct_answer}
-        Is the user's answer roughly correct or similar? Respond with "true" if it is correct, otherwise respond with "false".
+        Is the user's answer roughly correct or similar? Respond with "true" if it is correct, otherwise respond with "false". Be lenient, the child is answering. Try to forgive some mistakes. But if it's completely wrong/nonsense say false.
         """
 
         # Call the OpenAI API
