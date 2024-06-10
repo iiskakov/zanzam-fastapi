@@ -157,7 +157,7 @@ async def check_answer(request: AnswerCheckRequest):
         )
 
         # Extract the response content
-        assistant_response = response.choices[0].message["content"].strip().lower()
+        assistant_response = response.choices[0].message.content.strip().lower()
 
         # Interpret the response
         if "true" in assistant_response:
