@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import uuid
 import time
-from typing import List
 
 app = FastAPI()
 
@@ -172,17 +171,10 @@ async def check_answer(request: AnswerCheckRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class QaraIntro(BaseModel):
-    id: int
-    created_at: str
-    label: str
-    video_url: str
-
-
-@app.get("/qara_intro", response_model=List[QaraIntro])
+@app.get("/qara_intro")
 async def get_qara_intro():
     try:
         response = supabase.table("qara_intro").select("*").execute()
-        return response.data
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
