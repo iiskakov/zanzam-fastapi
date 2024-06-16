@@ -181,7 +181,8 @@ class QaraIntro(BaseModel):
 
 @app.get("/qara_intro", response_model=List[QaraIntro])
 async def get_qara_intro():
-    response = supabase.table("qara_intro").select("*").execute()
-    if response.error:
-        raise HTTPException(status_code=400, detail=response.error.message)
-    return response.data
+    try:
+        response = supabase.table("qara_intro").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
